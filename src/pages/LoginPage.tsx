@@ -81,11 +81,6 @@ export const LoginPage: React.FC = () => {
           </button>
         </form>
 
-        <div className="mt-6 text-center">
-          <p className="text-sm text-white/60">
-            Demo credentials: any email / any password
-          </p>
-        </div>
       </div>
     </div>
   );
