@@ -6,7 +6,6 @@ import type { University } from './mockData';
 import { universities } from './mockData';
 
 const ENTRIES_OPTIONS = [8, 16, 24];
-const TOTAL_ENTRIES = 50;
 
 const UniManagementHome: React.FC = () => {
   const [search, setSearch] = useState('');

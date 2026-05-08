@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { SearchIcon, NotificationsIcon, ProfileIcon } from '../ui/icons';
 
 export const Header: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { logout } = useAuth();
   const navigate = useNavigate();
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
