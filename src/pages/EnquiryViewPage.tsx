@@ -1,41 +1,73 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-
-interface Enquiry {
-  id: string;
-  name: string;
-  mobileNumber: string;
-  email: string;
-  subject: string;
-}
+import { fetchAdminComplaints, mapComplaintToEnquiry, replyToAdminComplaint } from '../services/complaintsApi';
+import type { EnquiryRecord } from '../services/complaintsApi';
 
 export const EnquiryViewPage: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const [message, setMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [replyFeedback, setReplyFeedback] = useState('');
+  const [enquiry, setEnquiry] = useState<EnquiryRecord | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  // Mock data - in a real app, you'd fetch this from an API using the id
-  const enquiries: Enquiry[] = [
-    { id: '0000001', name: 'Liam', mobileNumber: '5506555340', email: 'liam@gmail.com', subject: 'Subject' },
-    { id: '0000002', name: 'Mason', mobileNumber: '9876543210', email: 'mason@gmail.com', subject: 'Subject' },
-    { id: '0000003', name: 'Liam', mobileNumber: '6543217890', email: 'liam@gmail.com', subject: 'Subject' },
-    { id: '0000004', name: 'Liam', mobileNumber: '7890123456', email: 'liam@gmail.com', subject: 'Subject' },
-    { id: '0000005', name: 'Mason', mobileNumber: '1234567890', email: 'mason@gmail.com', subject: 'Subject' },
-    { id: '0000006', name: 'Mason', mobileNumber: '4567890123', email: 'mason@gmail.com', subject: 'Subject' },
-    { id: '0000007', name: 'Liam', mobileNumber: '9876504321', email: 'liam@gmail.com', subject: 'Subject' },
-    { id: '0000008', name: 'James', mobileNumber: '2345678901', email: 'james@gmail.com', subject: 'Subject' },
-    { id: '0000009', name: 'Sarah', mobileNumber: '3456789012', email: 'sarah@email.com', subject: 'Subject' },
-    { id: '0000010', name: 'Michael', mobileNumber: '4567890123', email: 'michael@domain.com', subject: 'Subject' },
-  ];
+  useEffect(() => {
+    let isActive = true;
 
-  const enquiry = enquiries.find((e) => e.id === id);
+    const loadEnquiry = async () => {
+      if (!id) {
+        setError('Enquiry id is missing.');
+        setIsLoading(false);
+        return;
+      }
+
+      setIsLoading(true);
+      setError('');
+
+      try {
+        const enquiries = await fetchAdminComplaints();
+        const matchedEnquiry = enquiries.find((item) => item.id === id) ?? null;
+
+        if (isActive) {
+          setEnquiry(matchedEnquiry);
+          if (!matchedEnquiry) {
+            setError('Enquiry not found.');
+          }
+        }
+      } catch (fetchError) {
+        if (isActive) {
+          setError(fetchError instanceof Error ? fetchError.message : 'Failed to load enquiry');
+          setEnquiry(null);
+        }
+      } finally {
+        if (isActive) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    void loadEnquiry();
+
+    return () => {
+      isActive = false;
+    };
+  }, [id]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#03091F] text-white flex items-center justify-center">
+        <div className="text-center text-white/70">Loading enquiry details...</div>
+      </div>
+    );
+  }
 
   if (!enquiry) {
     return (
       <div className="min-h-screen bg-[#03091F] text-white flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-2xl font-bold mb-4">Enquiry Not Found</h2>
+          <h2 className="text-2xl font-bold mb-4">{error || 'Enquiry Not Found'}</h2>
           <button
             onClick={() => navigate('/enquiries')}
             className="bg-[#F68E2D] hover:bg-[#F68E2D]/90 text-white font-semibold px-6 py-2 rounded-lg transition"
@@ -48,15 +80,23 @@ export const EnquiryViewPage: React.FC = () => {
   }
 
   const handleSend = async () => {
-    if (!message.trim()) return;
+    if (!id || !message.trim() || isSending) return;
 
     setIsSending(true);
-    // Simulate API call
-    setTimeout(() => {
+    setReplyFeedback('');
+
+    try {
+      const response = await replyToAdminComplaint(id, message.trim());
+      const updatedEnquiry = mapComplaintToEnquiry(response.complaint);
+
+      setEnquiry(updatedEnquiry);
       setMessage('');
+      setReplyFeedback(response.message || 'Reply sent successfully.');
+    } catch (sendError) {
+      setReplyFeedback(sendError instanceof Error ? sendError.message : 'Failed to send reply');
+    } finally {
       setIsSending(false);
-      // You can add a toast notification here
-    }, 1000);
+    }
   };
 
   return (
@@ -74,7 +114,7 @@ export const EnquiryViewPage: React.FC = () => {
             Back to Enquiries
           </button>
           <h1 className="text-4xl font-bold">Enquiry Details</h1>
-          <p className="mt-2 text-white/60">Manage and respond to enquiry #{enquiry.id}</p>
+          <p className="mt-2 text-white/60">Manage and respond to enquiry #{enquiry.referenceNumber}</p>
         </div>
       </div>
 
@@ -84,6 +124,11 @@ export const EnquiryViewPage: React.FC = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <div>
+            <div className="mb-8">
+              <p className="text-white/60 text-sm mb-2">Reference Number :</p>
+              <p className="text-white text-lg">{enquiry.referenceNumber}</p>
+            </div>
+
             <div className="mb-8">
               <p className="text-white/60 text-sm mb-2">Name :</p>
               <p className="text-white text-lg">{enquiry.name}</p>
@@ -110,13 +155,68 @@ export const EnquiryViewPage: React.FC = () => {
 
         <div className="mt-8">
           <p className="text-white/60 text-sm mb-2">Message :</p>
-          <p className="text-white text-lg">This is the enquiry message from the user regarding their query or issue.</p>
+          <p className="text-white text-lg">{enquiry.message}</p>
         </div>
+
+        <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div>
+            <p className="text-white/60 text-sm mb-2">Country of Residence :</p>
+            <p className="text-white text-lg">{enquiry.countryOfResidence}</p>
+          </div>
+
+          <div>
+            <p className="text-white/60 text-sm mb-2">Agent / Company :</p>
+            <p className="text-white text-lg">{enquiry.agentNameOrCompany}</p>
+          </div>
+        </div>
+
+        <div className="mt-8">
+          <p className="text-white/60 text-sm mb-2">Status :</p>
+          <p className="text-white text-lg capitalize">{enquiry.status}</p>
+        </div>
+
+        <div className="mt-8">
+          <p className="text-white/60 text-sm mb-3">Evidence Files :</p>
+          {enquiry.evidenceFiles.length > 0 ? (
+            <div className="space-y-2">
+              {enquiry.evidenceFiles.map((file) => (
+                <a
+                  key={file.fileUrl}
+                  href={file.fileUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="block text-[#F68E2D] hover:underline"
+                >
+                  {file.fileName}
+                </a>
+              ))}
+            </div>
+          ) : (
+            <p className="text-white text-lg">No evidence files uploaded.</p>
+          )}
+        </div>
+
+        {(enquiry.replyMessage || enquiry.repliedBy || enquiry.repliedAt) && (
+          <div className="mt-8 rounded-lg border border-white/10 bg-white/5 p-5">
+            <p className="text-white/60 text-sm mb-2">Latest Reply :</p>
+            <p className="text-white text-lg">{enquiry.replyMessage || 'No reply message available.'}</p>
+            <div className="mt-4 flex flex-col gap-2 text-sm text-white/60">
+              {enquiry.repliedBy && <span>Replied By: {enquiry.repliedBy}</span>}
+              {enquiry.repliedAt && <span>Replied At: {new Date(enquiry.repliedAt).toLocaleString()}</span>}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Reply Section */}
       <div className="bg-[#14112E] border border-white/10 rounded-lg p-8">
         <h2 className="text-2xl font-bold mb-8">REPLY</h2>
+
+        {replyFeedback && (
+          <div className="mb-6 rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/80">
+            {replyFeedback}
+          </div>
+        )}
 
         <div>
           <label className="text-white/80 text-sm mb-3 block font-semibold">Message</label>

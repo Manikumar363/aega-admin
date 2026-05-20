@@ -1,12 +1,29 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ChevronDown, ChevronLeft, ChevronRight, Eye, Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, Eye, Pencil, Search, Trash2 } from 'lucide-react';
 import AddStudent from './AddStudent';
 import ViewStudent from './ViewStudent';
 import type { Student } from './mockData';
-import { sampleStudents } from './mockData';
+import { fetchAdminStudents, type AdminStudentRecord } from '../../services/adminManagementApi';
 
 const ENTRIES_OPTIONS = [8, 16, 24];
-const STORAGE_KEY = 'student_list_v1';
+
+const mapApiStudentToRow = (student: AdminStudentRecord, index: number): Student => {
+  const primaryPreference = student.universitiesPreferences[0];
+  const primaryGraduation = student.graduationInformation[0];
+
+  return {
+    id: index + 1,
+    apiId: student._id,
+    name: `${student.firstName} ${student.lastName}`.trim(),
+    program: primaryPreference?.courseName || primaryGraduation?.streamOrSpecialization || 'N/A',
+    mobile: student.mobileNumber,
+    email: student.emailId,
+    location: primaryPreference?.region || primaryPreference?.location || student.preferredRegionAndCollege[0]?.region || 'N/A',
+    avatar: '/avatar.jpg',
+    verified: index % 3 === 0 ? 'blue' : index % 3 === 1 ? 'orange' : 'red',
+    online: index % 2 === 0,
+  };
+};
 
 const StudentManagementHome: React.FC = () => {
   const [search, setSearch] = useState('');
@@ -16,25 +33,39 @@ const StudentManagementHome: React.FC = () => {
   const [showAddStudent, setShowAddStudent] = useState(false);
   const [viewingStudent, setViewingStudent] = useState<Student | null>(null);
   const [students, setStudents] = useState<Student[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
+    let isActive = true;
+
+    const loadStudents = async () => {
+      setIsLoading(true);
+      setError('');
+
       try {
-        const parsed = JSON.parse(raw) as Student[];
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setStudents(parsed);
-          return;
+        const records = await fetchAdminStudents();
+        if (isActive) {
+          setStudents(records.map(mapApiStudentToRow));
         }
-      } catch {}
-    }
+      } catch (loadError) {
+        if (isActive) {
+          setError(loadError instanceof Error ? loadError.message : 'Failed to load students');
+          setStudents([]);
+        }
+      } finally {
+        if (isActive) {
+          setIsLoading(false);
+        }
+      }
+    };
 
-    setStudents(sampleStudents);
+    void loadStudents();
+
+    return () => {
+      isActive = false;
+    };
   }, []);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(students));
-  }, [students]);
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -125,14 +156,7 @@ const StudentManagementHome: React.FC = () => {
             Student Type ▾
           </button>
 
-          <button
-            type="button"
-            onClick={() => setShowAddStudent(true)}
-            className="inline-flex h-12 items-center gap-3 bg-[#F68E2D] px-4 text-sm font-medium text-white"
-          >
-            <Plus className="h-4 w-4" />
-            Add Student
-          </button>
+         
         </div>
       </div>
 
@@ -160,7 +184,19 @@ const StudentManagementHome: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {paginatedStudents.length === 0 ? (
+              {isLoading ? (
+                <tr>
+                  <td colSpan={7} className="px-6 py-10 text-center text-white/75">
+                    Loading students...
+                  </td>
+                </tr>
+              ) : error ? (
+                <tr>
+                  <td colSpan={7} className="px-6 py-10 text-center text-[#FF7A7A]">
+                    {error}
+                  </td>
+                </tr>
+              ) : paginatedStudents.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-6 py-10 text-center text-white/75">
                     No students found.

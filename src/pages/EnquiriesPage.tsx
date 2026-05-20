@@ -1,45 +1,67 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-
-interface Enquiry {
-  id: string;
-  name: string;
-  mobileNumber: string;
-  email: string;
-  subject: string;
-}
+import { fetchAdminComplaints } from '../services/complaintsApi';
+import type { EnquiryRecord } from '../services/complaintsApi';
 
 export const EnquiriesPage: React.FC = () => {
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
+  const [enquiries, setEnquiries] = useState<EnquiryRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
   const itemsPerPage = 8;
 
-  const enquiries: Enquiry[] = [
-    { id: '0000001', name: 'Liam', mobileNumber: '5506555340', email: 'liam@gmail.com', subject: 'Subject' },
-    { id: '0000002', name: 'Mason', mobileNumber: '9876543210', email: 'mason@gmail.com', subject: 'Subject' },
-    { id: '0000003', name: 'Liam', mobileNumber: '6543217890', email: 'liam@gmail.com', subject: 'Subject' },
-    { id: '0000004', name: 'Liam', mobileNumber: '7890123456', email: 'liam@gmail.com', subject: 'Subject' },
-    { id: '0000005', name: 'Mason', mobileNumber: '1234567890', email: 'mason@gmail.com', subject: 'Subject' },
-    { id: '0000006', name: 'Mason', mobileNumber: '4567890123', email: 'mason@gmail.com', subject: 'Subject' },
-    { id: '0000007', name: 'Liam', mobileNumber: '9876504321', email: 'liam@gmail.com', subject: 'Subject' },
-    { id: '0000008', name: 'James', mobileNumber: '2345678901', email: 'james@gmail.com', subject: 'Subject' },
-    { id: '0000009', name: 'Sarah', mobileNumber: '3456789012', email: 'sarah@email.com', subject: 'Subject' },
-    { id: '0000010', name: 'Michael', mobileNumber: '4567890123', email: 'michael@domain.com', subject: 'Subject' },
-  ];
+  useEffect(() => {
+    let isActive = true;
 
-  const filteredEnquiries = enquiries.filter(
+    const loadEnquiries = async () => {
+      setIsLoading(true);
+      setError('');
+
+      try {
+        const records = await fetchAdminComplaints();
+        if (isActive) {
+          setEnquiries(records);
+        }
+      } catch (fetchError) {
+        if (isActive) {
+          setError(fetchError instanceof Error ? fetchError.message : 'Failed to load enquiries');
+          setEnquiries([]);
+        }
+      } finally {
+        if (isActive) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    void loadEnquiries();
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  const filteredEnquiries = useMemo(
+    () => enquiries.filter(
     (enquiry) =>
       enquiry.id.includes(searchTerm) ||
+      enquiry.referenceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
       enquiry.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      enquiry.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+      enquiry.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      enquiry.subject.toLowerCase().includes(searchTerm.toLowerCase())
+  ), [enquiries, searchTerm]);
 
   const totalPages = Math.ceil(filteredEnquiries.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedEnquiries = filteredEnquiries.slice(startIndex, startIndex + itemsPerPage);
 
-  const handleMessageClick = (enquiry: Enquiry) => {
+  const handleMessageClick = (enquiry: EnquiryRecord) => {
+    navigate(`/enquiries/${enquiry.id}`);
+  };
+
+  const handleViewClick = (enquiry: EnquiryRecord) => {
     navigate(`/enquiries/${enquiry.id}`);
   };
 
@@ -79,49 +101,74 @@ export const EnquiriesPage: React.FC = () => {
           <table className="w-full">
             <thead>
               <tr className="border-b border-white/20 bg-transparent">
-                <th className="px-4 py-3 text-left text-sm font-semibold text-white">Eng ID</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-white">Ref No.</th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-white">Name</th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-white">Mobile Number</th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-white">Email</th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-white">Subject</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-white">Status</th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-white">Action</th>
               </tr>
             </thead>
             <tbody>
-              {paginatedEnquiries.map((enquiry) => (
-                <tr
-                  key={enquiry.id}
-                  className="border-b border-white/20 hover:bg-white/5 transition"
-                >
-                  <td className="px-4 py-3 text-sm text-white">{enquiry.id}</td>
-                  <td className="px-4 py-3 text-sm text-white">{enquiry.name}</td>
-                  <td className="px-4 py-3 text-sm text-white">{enquiry.mobileNumber}</td>
-                  <td className="px-4 py-3 text-sm text-white">{enquiry.email}</td>
-                  <td className="px-4 py-3 text-sm text-white">{enquiry.subject}</td>
-                  <td className="px-4 py-3 text-sm">
-                    <div className="flex items-center gap-2">
-                      <button
-                        className="p-2 rounded-lg bg-[#F68E2D] text-white hover:bg-[#F68E2D]/80 transition"
-                        title="View"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                        </svg>
-                      </button>
-                      <button
-                        className="p-2 rounded-lg bg-[#6366F1] text-white hover:bg-[#6366F1]/80 transition"
-                        title="Message"
-                        onClick={() => handleMessageClick(enquiry)}
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                        </svg>
-                      </button>
-                    </div>
+              {isLoading ? (
+                <tr>
+                  <td className="px-4 py-8 text-sm text-white/60" colSpan={7}>
+                    Loading enquiries...
                   </td>
                 </tr>
-              ))}
+              ) : error ? (
+                <tr>
+                  <td className="px-4 py-8 text-sm text-[#FF7A7A]" colSpan={7}>
+                    {error}
+                  </td>
+                </tr>
+              ) : paginatedEnquiries.length === 0 ? (
+                <tr>
+                  <td className="px-4 py-8 text-sm text-white/60" colSpan={7}>
+                    No enquiries found.
+                  </td>
+                </tr>
+              ) : (
+                paginatedEnquiries.map((enquiry) => (
+                  <tr
+                    key={enquiry.id}
+                    className="border-b border-white/20 hover:bg-white/5 transition"
+                  >
+                    <td className="px-4 py-3 text-sm text-white">{enquiry.referenceNumber}</td>
+                    <td className="px-4 py-3 text-sm text-white">{enquiry.name}</td>
+                    <td className="px-4 py-3 text-sm text-white">{enquiry.mobileNumber}</td>
+                    <td className="px-4 py-3 text-sm text-white">{enquiry.email}</td>
+                    <td className="px-4 py-3 text-sm text-white">{enquiry.subject}</td>
+                    <td className="px-4 py-3 text-sm text-white capitalize">{enquiry.status}</td>
+                    <td className="px-4 py-3 text-sm">
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          className="p-2 rounded-lg bg-[#F68E2D] text-white hover:bg-[#F68E2D]/80 transition"
+                          title="View"
+                          onClick={() => handleViewClick(enquiry)}
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                        </button>
+                        <button
+                          type="button"
+                          className="p-2 rounded-lg bg-[#6366F1] text-white hover:bg-[#6366F1]/80 transition"
+                          title="Message"
+                          onClick={() => handleMessageClick(enquiry)}
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                          </svg>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -162,7 +209,7 @@ export const EnquiriesPage: React.FC = () => {
             </button>
           </div>
           <div className="text-sm text-white/60">
-            Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredEnquiries.length)} of {filteredEnquiries.length} entries
+            Showing {filteredEnquiries.length === 0 ? 0 : startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredEnquiries.length)} of {filteredEnquiries.length} entries
             <button className="ml-4 px-3 py-1 rounded border border-white/20 text-white hover:bg-white/10 text-xs">
               Show 8
             </button>

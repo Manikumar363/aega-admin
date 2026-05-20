@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState } from 'react';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -10,24 +10,20 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [user, setUser] = useState<{ id?: string; name?: string; email: string; role?: string } | null>(null);
-
-  // Check if user is logged in on mount
-  useEffect(() => {
+  const [user, setUser] = useState<{ id?: string; name?: string; email: string; role?: string } | null>(() => {
     const savedUser = localStorage.getItem('user');
-    const token = localStorage.getItem('refresh_token');
-    if (savedUser) {
-      try {
-        setUser(JSON.parse(savedUser));
-      } catch {
-        // ignore parse errors
-      }
+
+    if (!savedUser) {
+      return null;
     }
-    if (token) {
-      setIsAuthenticated(true);
+
+    try {
+      return JSON.parse(savedUser) as { id?: string; name?: string; email: string; role?: string };
+    } catch {
+      return null;
     }
-  }, []);
+  });
+  const [isAuthenticated, setIsAuthenticated] = useState(() => Boolean(localStorage.getItem('refresh_token')));
 
   const login = async (email: string, password: string) => {
     const base = (import.meta.env.VITE_REACT_APP_API_BASE_URL as string) || '';

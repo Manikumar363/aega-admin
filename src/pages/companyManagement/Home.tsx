@@ -2,11 +2,35 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ViewCompany from './ViewCompany';
 import { toast } from 'react-toastify';
-import { SAMPLE_COMPANIES, type CompanyRow } from './mockData';
+import type { CompanyRow } from './mockData';
+import { fetchAdminCompanies, type AdminCompanyRecord } from '../../services/adminManagementApi';
 
 const ENTRIES_OPTIONS = [8, 16, 24];
 
-const STORAGE_KEY = 'companies_list_v1';
+const makeInitials = (name: string) => {
+  const trimmed = name.trim();
+  if (!trimmed) return 'CMP';
+
+  const parts = trimmed.split(/\s+/);
+  if (parts.length === 1) return parts[0].slice(0, 4).toUpperCase();
+
+  return parts
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join('')
+    .toUpperCase();
+};
+
+const mapApiCompanyToRow = (company: AdminCompanyRecord, index: number): CompanyRow => ({
+  id: index + 1,
+  apiId: company._id,
+  name: company.companyName,
+  owner: company.founderName,
+  mobile: company.mobileNumber,
+  email: company.emailId,
+  region: company.office || company.country || 'N/A',
+  initials: makeInitials(company.companyName),
+});
 
 const CompanyManagementHome: React.FC = () => {
   const navigate = useNavigate();
@@ -16,24 +40,39 @@ const CompanyManagementHome: React.FC = () => {
   const [showEntriesDropdown, setShowEntriesDropdown] = useState(false);
   const [viewingCompany, setViewingCompany] = useState<CompanyRow | null>(null);
   const [companies, setCompanies] = useState<CompanyRow[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
+    let isActive = true;
+
+    const loadCompanies = async () => {
+      setIsLoading(true);
+      setError('');
+
       try {
-        const parsed = JSON.parse(raw) as CompanyRow[];
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setCompanies(parsed);
-          return;
+        const records = await fetchAdminCompanies();
+        if (isActive) {
+          setCompanies(records.map(mapApiCompanyToRow));
         }
-      } catch {}
-    }
-    setCompanies(SAMPLE_COMPANIES);
-  }, []);
+      } catch (loadError) {
+        if (isActive) {
+          setError(loadError instanceof Error ? loadError.message : 'Failed to load companies');
+          setCompanies([]);
+        }
+      } finally {
+        if (isActive) {
+          setIsLoading(false);
+        }
+      }
+    };
 
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(companies));
-  }, [companies]);
+    void loadCompanies();
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -120,13 +159,7 @@ const CompanyManagementHome: React.FC = () => {
             Agent Type ▾
           </button>
 
-          <button
-            type="button"
-            onClick={() => navigate('/office/add')}
-              className="inline-flex h-12 items-center gap-3 bg-[#F68E2D] px-4 text-sm font-medium text-white"
-          >
-            + Add Company
-          </button>
+          
         </div>
       </div>
 
@@ -154,7 +187,19 @@ const CompanyManagementHome: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {paginatedRows.length === 0 ? (
+              {isLoading ? (
+                <tr>
+                  <td colSpan={7} className="px-6 py-10 text-center text-white/75">
+                    Loading companies...
+                  </td>
+                </tr>
+              ) : error ? (
+                <tr>
+                  <td colSpan={7} className="px-6 py-10 text-center text-[#FF7A7A]">
+                    {error}
+                  </td>
+                </tr>
+              ) : paginatedRows.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-6 py-10 text-center text-white/75">
                     No companies found.

@@ -1,12 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ChevronDown, ChevronLeft, ChevronRight, Eye, Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, Eye, Pencil, Search, Trash2 } from 'lucide-react';
 import AddAgent from './AddAgent';
 import ViewAgent from './ViewAgent';
 import type { Agent, EditableAgent } from './mockData';
-import { sampleAgents } from './mockData';
+import { fetchAdminAgents, type AdminAgentRecord } from '../../services/adminManagementApi';
 
 const ENTRIES_OPTIONS = [8, 16, 24];
-const STORAGE_KEY = 'agent_list_v1';
 
 const mapEditableToAgent = (agent: EditableAgent, index: number): Agent => ({
   id: index + 1,
@@ -22,6 +21,30 @@ const mapEditableToAgent = (agent: EditableAgent, index: number): Agent => ({
   source: agent,
 });
 
+const mapApiAgentToAgent = (agent: AdminAgentRecord, index: number): Agent => ({
+  id: index + 1,
+  apiId: agent.id,
+  name: `${agent.firstName} ${agent.lastName}`.trim(),
+  designation: agent.designation || agent.user?.role || 'Agent',
+  mobile: agent.mobileNumber,
+  email: agent.emailId,
+  location: agent.office || agent.country || 'N/A',
+  avatar: '/avatar.jpg',
+  verified: index % 3 === 0 ? 'blue' : index % 3 === 1 ? 'orange' : 'red',
+  online: index % 2 === 0,
+  source: {
+    id: agent.id,
+    firstName: agent.firstName,
+    lastName: agent.lastName,
+    emailId: agent.emailId,
+    mobileNumber: agent.mobileNumber,
+    designation: agent.designation,
+    office: agent.office,
+    country: agent.country,
+    authorization: agent.authorization,
+  },
+});
+
 const AgentManagementHome: React.FC = () => {
   const [search, setSearch] = useState('');
   const [entriesPerPage, setEntriesPerPage] = useState(8);
@@ -31,25 +54,39 @@ const AgentManagementHome: React.FC = () => {
   const [editingAgent, setEditingAgent] = useState<EditableAgent | null>(null);
   const [viewingAgent, setViewingAgent] = useState<Agent | null>(null);
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
+    let isActive = true;
+
+    const loadAgents = async () => {
+      setIsLoading(true);
+      setError('');
+
       try {
-        const parsed = JSON.parse(raw) as Agent[];
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setAgents(parsed);
-          return;
+        const records = await fetchAdminAgents();
+        if (isActive) {
+          setAgents(records.map(mapApiAgentToAgent));
         }
-      } catch {}
-    }
+      } catch (loadError) {
+        if (isActive) {
+          setError(loadError instanceof Error ? loadError.message : 'Failed to load agents');
+          setAgents([]);
+        }
+      } finally {
+        if (isActive) {
+          setIsLoading(false);
+        }
+      }
+    };
 
-    setAgents(sampleAgents);
+    void loadAgents();
+
+    return () => {
+      isActive = false;
+    };
   }, []);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(agents));
-  }, [agents]);
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -167,14 +204,7 @@ const AgentManagementHome: React.FC = () => {
             Agent Type ▾
           </button>
 
-          <button
-            type="button"
-            onClick={() => setShowAddAgent(true)}
-            className="inline-flex h-12 items-center gap-3 bg-[#F68E2D] px-4 text-sm font-medium text-white"
-          >
-            <Plus className="h-4 w-4" />
-            Add Agent
-          </button>
+          
         </div>
       </div>
 
@@ -202,7 +232,19 @@ const AgentManagementHome: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {paginatedAgents.length === 0 ? (
+              {isLoading ? (
+                <tr>
+                  <td colSpan={7} className="px-6 py-10 text-center text-white/75">
+                    Loading agents...
+                  </td>
+                </tr>
+              ) : error ? (
+                <tr>
+                  <td colSpan={7} className="px-6 py-10 text-center text-[#FF7A7A]">
+                    {error}
+                  </td>
+                </tr>
+              ) : paginatedAgents.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-6 py-10 text-center text-white/75">
                     No agents found.
