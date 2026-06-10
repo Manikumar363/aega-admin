@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { createCDPCourse } from '../services/cdpTrainingApi';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { getCDPCourseById, updateCDPCourse } from '../services/cdpTrainingApi';
 
-const AddCDPTraining: React.FC = () => {
+const EditCDPTraining: React.FC = () => {
+  const { courseId } = useParams<{ courseId: string }>();
   const [courseName, setCourseName] = useState('');
   const [type, setType] = useState<'mandatory' | 'optional'>('mandatory');
   const [timeInHr, setTimeInHr] = useState('');
@@ -10,21 +11,59 @@ const AddCDPTraining: React.FC = () => {
   const [hyperLink, setHyperLink] = useState('');
   const [description, setDescription] = useState('');
   const [coverPicture, setCoverPicture] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  const handleAdd = async () => {
+  useEffect(() => {
+    const loadCourse = async () => {
+      if (!courseId) {
+        setError('Course ID not found');
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setError(null);
+        const course = await getCDPCourseById(courseId);
+        
+        setCourseName(course.courseName || '');
+        setType((course.type as 'mandatory' | 'optional') || 'mandatory');
+        setTimeInHr(String(course.timeInHr || ''));
+        setModules(String(course.modules || ''));
+        setHyperLink(course.hyperLink || '');
+        setDescription(course.description || '');
+        setCoverPicture(course.coverPicture || '');
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to load course';
+        setError(message);
+        console.error('Error loading course:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadCourse();
+  }, [courseId]);
+
+  const handleUpdate = async () => {
     if (!courseName || !timeInHr || !modules || !hyperLink || !description) {
       setError('Please fill in all required fields');
       return;
     }
 
+    if (!courseId) {
+      setError('Course ID not found');
+      return;
+    }
+
     try {
-      setLoading(true);
+      setSaving(true);
       setError(null);
 
-      await createCDPCourse({
+      await updateCDPCourse(courseId, {
         courseName,
         type,
         timeInHr: Number(timeInHr),
@@ -36,19 +75,31 @@ const AddCDPTraining: React.FC = () => {
 
       navigate('/cdp');
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to create course';
+      const message = err instanceof Error ? err.message : 'Failed to update course';
       setError(message);
-      console.error('Error creating course:', err);
+      console.error('Error updating course:', err);
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
+
+  if (loading) {
+    return (
+      <div className="space-y-6 text-white">
+        <div>
+          <h1 className="text-2xl font-bold">Edit CDP Training</h1>
+          <p className="mt-2 text-sm text-white/70">Edit your CDP Training course.</p>
+        </div>
+        <div className="text-center py-8">Loading...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 text-white">
       <div>
-        <h1 className="text-2xl font-bold">CDP Training</h1>
-        <p className="mt-2 text-sm text-white/70">Manage all of your CDP Training from here.</p>
+        <h1 className="text-2xl font-bold">Edit CDP Training</h1>
+        <p className="mt-2 text-sm text-white/70">Edit your CDP Training course.</p>
       </div>
 
       {error && (
@@ -65,7 +116,7 @@ const AddCDPTraining: React.FC = () => {
             onChange={(e) => setCourseName(e.target.value)} 
             placeholder="Name" 
             className="w-full border border-white/10 bg-transparent px-4 py-3 text-white" 
-            disabled={loading}
+            disabled={saving}
           />
         </div>
         <div>
@@ -74,7 +125,7 @@ const AddCDPTraining: React.FC = () => {
             value={type} 
             onChange={(e) => setType(e.target.value as any)} 
             className="w-full border border-white/10 bg-transparent px-4 py-3 text-white"
-            disabled={loading}
+            disabled={saving}
           >
             <option value="mandatory">Mandatory</option>
             <option value="optional">Optional</option>
@@ -89,7 +140,7 @@ const AddCDPTraining: React.FC = () => {
             placeholder="20" 
             type="number"
             className="w-full border border-white/10 bg-transparent px-4 py-3 text-white" 
-            disabled={loading}
+            disabled={saving}
           />
         </div>
         <div>
@@ -100,7 +151,7 @@ const AddCDPTraining: React.FC = () => {
             placeholder="8" 
             type="number"
             className="w-full border border-white/10 bg-transparent px-4 py-3 text-white" 
-            disabled={loading}
+            disabled={saving}
           />
         </div>
 
@@ -112,7 +163,7 @@ const AddCDPTraining: React.FC = () => {
             placeholder="https://example.com" 
             type="url"
             className="w-full border border-white/10 bg-transparent px-4 py-3 text-white" 
-            disabled={loading}
+            disabled={saving}
           />
         </div>
         <div>
@@ -123,7 +174,7 @@ const AddCDPTraining: React.FC = () => {
             placeholder="https://example.com/image.jpg" 
             type="url"
             className="w-full border border-white/10 bg-transparent px-4 py-3 text-white" 
-            disabled={loading}
+            disabled={saving}
           />
         </div>
 
@@ -135,7 +186,7 @@ const AddCDPTraining: React.FC = () => {
             rows={5} 
             placeholder="Description" 
             className="w-full border border-white/10 bg-transparent px-4 py-3 text-white" 
-            disabled={loading}
+            disabled={saving}
           />
         </div>
       </div>
@@ -144,20 +195,20 @@ const AddCDPTraining: React.FC = () => {
         <button 
           onClick={() => navigate('/cdp')} 
           className="min-w-45 border border-[#F68E2D] bg-white px-6 py-3 text-sm font-medium text-[#B8BDC7]"
-          disabled={loading}
+          disabled={saving}
         >
-          Discard
+          Cancel
         </button>
         <button 
-          onClick={handleAdd} 
+          onClick={handleUpdate} 
           className="min-w-45 bg-[#F68E2D] px-6 py-3 text-sm font-semibold text-white disabled:opacity-50"
-          disabled={loading}
+          disabled={saving}
         >
-          {loading ? 'Adding...' : 'Add Course'}
+          {saving ? 'Updating...' : 'Update Course'}
         </button>
       </div>
     </div>
   );
 };
 
-export default AddCDPTraining;
+export default EditCDPTraining;

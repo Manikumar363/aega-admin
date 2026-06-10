@@ -1,5 +1,6 @@
 export type University = {
   id: number;
+  _id?: string; // MongoDB ObjectId
   name: string;
   mobile: string;
   email: string;

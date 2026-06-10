@@ -1,52 +1,81 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { EditIcon } from '../components/ui/icons';
-
-interface Course {
-  id: number;
-  name: string;
-  for: 'University' | 'Agents';
-  type: 'Standard' | 'Recommended';
-  modules: number;
-  time: string;
-}
-
-const sampleCourses: Course[] = Array.from({ length: 10 }).map((_, i) => ({
-  id: i + 1,
-  name: `Course ${i + 1}`,
-  for: i % 2 === 0 ? 'University' : 'Agents',
-  type: i % 3 === 0 ? 'Recommended' : 'Standard',
-  modules: (i % 5) + 1,
-  time: '16 hr',
-}));
-
-const STORAGE_KEY = 'cdpCourses';
+import { fetchCDPCourses, deleteCDPCourse } from '../services/cdpTrainingApi';
+import type { CDPCourse } from '../services/cdpTrainingApi';
+import { Eye, Pencil, Trash2 } from 'lucide-react';
 
 const CDPTraining: React.FC = () => {
-  const [courses, setCourses] = useState<Course[]>([]);
+  const [courses, setCourses] = useState<CDPCourse[]>([]);
   const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
+    const loadCourses = async () => {
       try {
-        setCourses(JSON.parse(raw));
-        return;
-      } catch {}
-    }
-    setCourses(sampleCourses);
-  }, []);
+        setLoading(true);
+        setError(null);
+        const data = await fetchCDPCourses();
+        setCourses(data);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to load courses';
+        setError(message);
+        console.error('Error loading courses:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(courses));
-  }, [courses]);
+    loadCourses();
+  }, []);
 
   const filtered = courses.filter(
     (c) =>
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.for.toLowerCase().includes(search.toLowerCase())
+      c.courseName.toLowerCase().includes(search.toLowerCase()) ||
+      c.description?.toLowerCase().includes(search.toLowerCase())
   );
+
+  const handleDelete = async (courseId: string | number | undefined) => {
+    if (!courseId) {
+      alert('Invalid course ID');
+      return;
+    }
+    if (window.confirm('Are you sure you want to delete this course?')) {
+      try {
+        await deleteCDPCourse(String(courseId));
+        setCourses(courses.filter(c => (c._id || c.id) !== courseId));
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to delete course';
+        alert(message);
+        console.error('Error deleting course:', err);
+      }
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="space-y-6 text-white">
+        <div>
+          <h1 className="text-2xl font-bold">CDP Training Management</h1>
+          <p className="mt-2 text-sm text-white/70">Manage all of your CDP Training from here.</p>
+        </div>
+        <div className="text-center py-8">Loading...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6 text-white">
+        <div>
+          <h1 className="text-2xl font-bold">CDP Training Management</h1>
+          <p className="mt-2 text-sm text-white/70">Manage all of your CDP Training from here.</p>
+        </div>
+        <div className="text-center py-8 text-red-500">Error: {error}</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 text-white">
@@ -88,19 +117,39 @@ const CDPTraining: React.FC = () => {
             </tr>
           </thead>
           <tbody>
-            {filtered.map((c) => (
-              <tr key={c.id} className="border-b border-white/10">
-                <td className="px-4 py-4 text-sm">{c.id}</td>
-                <td className="px-4 py-4 text-sm">{c.name}</td>
-                <td className="px-4 py-4 text-sm">{c.for}</td>
+            {filtered.map((c, idx) => (
+              <tr key={c._id || c.id} className="border-b border-white/10">
+                <td className="px-4 py-4 text-sm">{idx + 1}</td>
+                <td className="px-4 py-4 text-sm">{c.courseName || c.name}</td>
+                <td className="px-4 py-4 text-sm">{c.type}</td>
                 <td className="px-4 py-4 text-sm">{c.type}</td>
                 <td className="px-4 py-4 text-sm">{c.modules}</td>
-                <td className="px-4 py-4 text-sm">{c.time}</td>
+                <td className="px-4 py-4 text-sm">{c.timeInHr || c.time}hr</td>
                 <td className="px-4 py-4 text-sm">
-                  <div className="flex items-center justify-end gap-3">
-                    <button onClick={() => alert('View not implemented')} className="h-8 w-8 rounded-full bg-[#F68E2D] text-white" />
-                    <button onClick={() => navigate(`/cdp/edit/${c.id}`)} className="h-8 w-8 rounded-full bg-[#3B53D7] text-white flex items-center justify-center">
-                      <EditIcon />
+                  <div className="flex flex-nowrap items-center justify-center gap-2">
+                    <button 
+                      type="button"
+                      onClick={() => navigate(`/cdp/view/${c._id || c.id}`)}
+                      className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#F7941D] transition-colors hover:bg-[#e28518]"
+                      aria-label="View"
+                    >
+                      <Eye className="h-3.5 w-3.5 text-white"/>
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => navigate(`/cdp/edit/${c._id || c.id}`)} 
+                      className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#3F5AE6] transition-colors hover:bg-[#334bd0]"
+                      aria-label="Edit"
+                    >
+                      <Pencil className="h-3.5 w-3.5 text-white" />
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => handleDelete(c._id || c.id)}
+                      className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#ED3941] transition-colors hover:bg-[#d1323a]"
+                      aria-label="Delete"
+                    >
+                      <Trash2 className="h-3.5 w-3.5 text-white"/>
                     </button>
                   </div>
                 </td>

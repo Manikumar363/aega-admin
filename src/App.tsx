@@ -8,6 +8,8 @@ import CompliancesPage from './pages/CompliancesPage';
 import ComplianceViewPage from './pages/ComplianceViewPage';
 import CDPTraining from './pages/CDPTraining';
 import AddCDPTraining from './pages/AddCDPTraining';
+import EditCDPTraining from './pages/EditCDPTraining';
+import ViewCDPTraining from './pages/ViewCDPTraining';
 import CompanyManagementHome from './pages/companyManagement/Home';
 import AddCompany from './pages/companyManagement/AddCompany';
 import AgentManagementHome from './pages/agentManagement/Home';
@@ -124,6 +126,22 @@ function App() {
             element={
               <ProtectedRoute>
                 <AddCDPTraining />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/cdp/edit/:courseId"
+            element={
+              <ProtectedRoute>
+                <EditCDPTraining />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/cdp/view/:courseId"
+            element={
+              <ProtectedRoute>
+                <ViewCDPTraining />
               </ProtectedRoute>
             }
           />

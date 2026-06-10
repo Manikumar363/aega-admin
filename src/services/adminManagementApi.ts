@@ -87,17 +87,19 @@ export interface AdminStudentRecord {
 }
 
 const getApiBaseUrl = () => {
-  const base = (import.meta.env.VITE_REACT_APP_API_BASE_URL as string) || '';
+  const base = (import.meta.env.VITE_REACT_APP_API_BASE_URL as string) || 'http://localhost:3000';
   return base.replace(/\/$/, '');
 };
 
 const buildUrl = (path: string) => {
   const base = getApiBaseUrl();
-  if (import.meta.env.DEV) {
-    return path;
+  // Always use the base URL if it's configured, regardless of dev/production mode
+  if (base) {
+    return `${base}${path}`;
   }
 
-  return `${base}${path}`;
+  // Fall back to relative paths only if no base URL is configured
+  return path;
 };
 
 const getAuthHeaders = (): ApiHeaders => {
@@ -129,11 +131,15 @@ const fetchAdminJson = async <T>(path: string): Promise<T> => {
     throw new Error(message || 'Failed to load records');
   }
 
-  if (!Array.isArray(data)) {
-    return [] as T;
+  if (Array.isArray(data)) {
+    return data as T;
   }
 
-  return data;
+  if (data && typeof data === 'object' && 'data' in data && Array.isArray((data as { data?: unknown[] }).data)) {
+    return (data as { data: T }).data;
+  }
+
+  return [] as T;
 };
 
 export const fetchAdminAgents = async () => fetchAdminJson<AdminAgentRecord[]>('/api/admin/agent-management');
@@ -141,3 +147,106 @@ export const fetchAdminAgents = async () => fetchAdminJson<AdminAgentRecord[]>('
 export const fetchAdminCompanies = async () => fetchAdminJson<AdminCompanyRecord[]>('/api/admin/companies');
 
 export const fetchAdminStudents = async () => fetchAdminJson<AdminStudentRecord[]>('/api/admin/students');
+
+// Fetch universities list
+export const fetchAdminUniversities = async () => fetchAdminJson<unknown[]>('/api/admin/universities');
+
+// Accept university
+export const acceptUniversity = async (universityId: string, notes?: string) => {
+  const response = await fetch(buildUrl(`/api/admin/universities/${universityId}/accept`), {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      ...getAuthHeaders(),
+    },
+    body: JSON.stringify({
+      notes: notes || 'University has been verified and approved',
+    }),
+  });
+
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    const message =
+      data && typeof data === 'object' && 'message' in data
+        ? (data as { message?: string }).message
+        : undefined;
+    throw new Error(message || 'Failed to accept university');
+  }
+
+  return data;
+};
+
+// Reject university
+export const rejectUniversity = async (universityId: string, reason: string, notes?: string) => {
+  const response = await fetch(buildUrl(`/api/admin/universities/${universityId}/reject`), {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      ...getAuthHeaders(),
+    },
+    body: JSON.stringify({
+      reason,
+      notes: notes || '',
+    }),
+  });
+
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    const message =
+      data && typeof data === 'object' && 'message' in data
+        ? (data as { message?: string }).message
+        : undefined;
+    throw new Error(message || 'Failed to reject university');
+  }
+
+  return data;
+};
+
+// Update university
+export const updateUniversity = async (universityId: string, updates: Record<string, unknown>) => {
+  const response = await fetch(buildUrl(`/api/admin/universities/${universityId}`), {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      ...getAuthHeaders(),
+    },
+    body: JSON.stringify(updates),
+  });
+
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    const message =
+      data && typeof data === 'object' && 'message' in data
+        ? (data as { message?: string }).message
+        : undefined;
+    throw new Error(message || 'Failed to update university');
+  }
+
+  return data;
+};
+
+// Delete university
+export const deleteUniversity = async (universityId: string) => {
+  const response = await fetch(buildUrl(`/api/admin/universities/${universityId}`), {
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+      ...getAuthHeaders(),
+    },
+  });
+
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    const message =
+      data && typeof data === 'object' && 'message' in data
+        ? (data as { message?: string }).message
+        : undefined;
+    throw new Error(message || 'Failed to delete university');
+  }
+
+  return data;
+};
