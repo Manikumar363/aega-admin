@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import CDPTraining from '../CDPTraining';
-import Compliances from '../CompliancesPage';
-import Audits from '../CompliancesPage';
+import Compliances from '../CompliancesTab';
+import Audits from '../AuditsTab';
 
 type Company = {
   id: number;
@@ -34,27 +34,43 @@ const performance = [
 const ViewCompany: React.FC<ViewCompanyProps> = ({ company }) => {
   const [timePeriod, setTimePeriod] = useState<'weekly' | 'monthly' | 'yearly'>('weekly');
   const [activeTab, setActiveTab] = useState<'info' | 'cdp' | 'compliances' | 'audits' | 'agent'>('info');
+  const [isEditingAudit, setIsEditingAudit] = useState(false);
+
+  const handleTabChange = (tab: typeof activeTab) => {
+    setActiveTab(tab);
+    setIsEditingAudit(false);
+  };
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between border-b border-[#F68E2D] pb-2 mb-6">
         <div className="flex items-center gap-8">
-          <button onClick={() => setActiveTab('info')} className={`font-semibold pb-2 border-b-2 ${activeTab === 'info' ? 'text-[#F68E2D] border-[#F68E2D]' : 'text-white border-transparent'}`}>Info</button>
-          <button onClick={() => setActiveTab('cdp')} className={`font-semibold pb-2 border-b-2 ${activeTab === 'cdp' ? 'text-[#F68E2D] border-[#F68E2D]' : 'text-white border-transparent'}`}>CDP Training</button>
-          <button onClick={() => setActiveTab('compliances')} className={`font-semibold pb-2 border-b-2 ${activeTab === 'compliances' ? 'text-[#F68E2D] border-[#F68E2D]' : 'text-white border-transparent'}`}>Compliances</button>
-          <button onClick={() => setActiveTab('audits')} className={`font-semibold pb-2 border-b-2 ${activeTab === 'audits' ? 'text-[#F68E2D] border-[#F68E2D]' : 'text-white border-transparent'}`}>Audits</button>
-          <button onClick={() => setActiveTab('agent')} className={`font-semibold pb-2 border-b-2 ${activeTab === 'agent' ? 'text-[#F68E2D] border-[#F68E2D]' : 'text-white border-transparent'}`}>Agents</button>
+          <button onClick={() => handleTabChange('info')} className={`font-semibold pb-2 border-b-2 ${activeTab === 'info' ? 'text-[#F68E2D] border-[#F68E2D]' : 'text-white border-transparent'}`}>Info</button>
+          <button onClick={() => handleTabChange('cdp')} className={`font-semibold pb-2 border-b-2 ${activeTab === 'cdp' ? 'text-[#F68E2D] border-[#F68E2D]' : 'text-white border-transparent'}`}>CDP Training</button>
+          <button onClick={() => handleTabChange('compliances')} className={`font-semibold pb-2 border-b-2 ${activeTab === 'compliances' ? 'text-[#F68E2D] border-[#F68E2D]' : 'text-white border-transparent'}`}>Compliances</button>
+          <button onClick={() => handleTabChange('audits')} className={`font-semibold pb-2 border-b-2 ${activeTab === 'audits' ? 'text-[#F68E2D] border-[#F68E2D]' : 'text-white border-transparent'}`}>Audits</button>
+          <button onClick={() => handleTabChange('agent')} className={`font-semibold pb-2 border-b-2 ${activeTab === 'agent' ? 'text-[#F68E2D] border-[#F68E2D]' : 'text-white border-transparent'}`}>Agents</button>
         </div>
 
-        <button className="bg-[#F68E2D] hover:bg-[#e57d1f] text-white px-6 py-2 rounded font-medium flex items-center gap-2"> <span className="text-lg font-bold">+</span> Raise Complaint</button>
+        <div className="flex items-center gap-3">
+          {activeTab === 'audits' && (
+            <button onClick={() => setIsEditingAudit(!isEditingAudit)} className="flex items-center gap-2 rounded bg-[#F68E2D] px-5 py-2 font-semibold text-white transition-colors hover:bg-[#e57d1f]">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M16.5 3.5a2.121 2.121 0 013 3L12 14l-4 1 1-4 7.5-7.5z" />
+              </svg>
+              {isEditingAudit ? 'Back to Audits' : 'Edit'}
+            </button>
+          )}
+          <button className="bg-[#F68E2D] hover:bg-[#e57d1f] text-white px-6 py-2 rounded font-medium flex items-center gap-2"> <span className="text-lg font-bold">+</span> Raise Complaint</button>
+        </div>
       </div>
 
       {activeTab === 'cdp' ? (
         <CDPTraining />
       ) : activeTab === 'compliances' ? (
-        <Compliances />
+        <Compliances targetType="company" targetId={String(company.id)} />
       ) : activeTab === 'audits' ? (
-        <Audits />
+        <Audits targetType="company" targetId={String(company.id)} isEditing={isEditingAudit} onCancel={() => setIsEditingAudit(false)} />
       ) : activeTab === 'agent' ? (
         <div>Agents</div>
       ) : (

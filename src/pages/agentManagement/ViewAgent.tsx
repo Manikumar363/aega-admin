@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import CDPTraining from '../CDPTraining';
-import Compliances from '../CompliancesPage';
-import Audits from '../CompliancesPage';
+import Compliances from '../CompliancesTab';
+import Audits from '../AuditsTab';
 import type { Agent } from './mockData';
 
 type ViewAgentProps = {
@@ -22,36 +22,52 @@ const performance = [
 const ViewAgent: React.FC<ViewAgentProps> = ({ agent }) => {
   const [timePeriod, setTimePeriod] = useState<'weekly' | 'monthly' | 'yearly'>('weekly');
   const [activeTab, setActiveTab] = useState<'info' | 'cdp' | 'compliances' | 'audits'>('info');
+  const [isEditingAudit, setIsEditingAudit] = useState(false);
+
+  const handleTabChange = (tab: typeof activeTab) => {
+    setActiveTab(tab);
+    setIsEditingAudit(false);
+  };
 
   return (
     <div className="space-y-6">
       <div className="mb-6 flex items-center justify-between border-b border-[#F68E2D] pb-2">
         <div className="flex items-center gap-8">
-          <button onClick={() => setActiveTab('info')} className={`border-b-2 pb-2 font-semibold ${activeTab === 'info' ? 'border-[#F68E2D] text-[#F68E2D]' : 'border-transparent text-white'}`}>
+          <button onClick={() => handleTabChange('info')} className={`border-b-2 pb-2 font-semibold ${activeTab === 'info' ? 'border-[#F68E2D] text-[#F68E2D]' : 'border-transparent text-white'}`}>
             Info
           </button>
-          <button onClick={() => setActiveTab('cdp')} className={`border-b-2 pb-2 font-semibold ${activeTab === 'cdp' ? 'border-[#F68E2D] text-[#F68E2D]' : 'border-transparent text-white'}`}>
+          <button onClick={() => handleTabChange('cdp')} className={`border-b-2 pb-2 font-semibold ${activeTab === 'cdp' ? 'border-[#F68E2D] text-[#F68E2D]' : 'border-transparent text-white'}`}>
             CDP Training
           </button>
-          <button onClick={() => setActiveTab('compliances')} className={`border-b-2 pb-2 font-semibold ${activeTab === 'compliances' ? 'border-[#F68E2D] text-[#F68E2D]' : 'border-transparent text-white'}`}>
+          <button onClick={() => handleTabChange('compliances')} className={`border-b-2 pb-2 font-semibold ${activeTab === 'compliances' ? 'border-[#F68E2D] text-[#F68E2D]' : 'border-transparent text-white'}`}>
             Compliances
           </button>
-          <button onClick={() => setActiveTab('audits')} className={`border-b-2 pb-2 font-semibold ${activeTab === 'audits' ? 'border-[#F68E2D] text-[#F68E2D]' : 'border-transparent text-white'}`}>
+          <button onClick={() => handleTabChange('audits')} className={`border-b-2 pb-2 font-semibold ${activeTab === 'audits' ? 'border-[#F68E2D] text-[#F68E2D]' : 'border-transparent text-white'}`}>
             Audits
           </button>
         </div>
 
-        <button className="flex items-center gap-2 rounded bg-[#F68E2D] px-6 py-2 font-medium text-white transition-colors hover:bg-[#e57d1f]">
-          <span className="text-lg font-bold">+</span> Raise Complaint
-        </button>
+        <div className="flex items-center gap-3">
+          {activeTab === 'audits' && (
+            <button onClick={() => setIsEditingAudit(!isEditingAudit)} className="flex items-center gap-2 rounded bg-[#F68E2D] px-5 py-2 font-semibold text-white transition-colors hover:bg-[#e57d1f]">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M16.5 3.5a2.121 2.121 0 013 3L12 14l-4 1 1-4 7.5-7.5z" />
+              </svg>
+              {isEditingAudit ? 'Back to Audits' : 'Edit'}
+            </button>
+          )}
+          <button className="flex items-center gap-2 rounded bg-[#F68E2D] px-6 py-2 font-medium text-white transition-colors hover:bg-[#e57d1f]">
+            <span className="text-lg font-bold">+</span> Raise Complaint
+          </button>
+        </div>
       </div>
 
       {activeTab === 'cdp' ? (
         <CDPTraining />
       ) : activeTab === 'compliances' ? (
-        <Compliances />
+        <Compliances targetType="agent" targetId={String(agent.id)} />
       ) : activeTab === 'audits' ? (
-        <Audits />
+        <Audits targetType="agent" targetId={String(agent.id)} isEditing={isEditingAudit} onCancel={() => setIsEditingAudit(false)} />
       ) : (
         <>
           <div className="rounded-lg border border-[#2C2A45] bg-[#14112E] p-6">

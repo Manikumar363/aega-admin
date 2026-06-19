@@ -148,6 +148,23 @@ export const fetchAdminCompanies = async () => fetchAdminJson<AdminCompanyRecord
 
 export const fetchAdminStudents = async () => fetchAdminJson<AdminStudentRecord[]>('/api/admin/students');
 
+export const fetchAdminStudentById = async (studentId: string): Promise<AdminStudentRecord> => {
+  const response = await fetch(buildUrl(`/api/admin/students/${studentId}`), {
+    headers: {
+      'Content-Type': 'application/json',
+      ...getAuthHeaders(),
+    },
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || 'Failed to fetch student details');
+  }
+
+  const data = await response.json();
+  return data.data || data;
+};
+
 // Fetch universities list
 export const fetchAdminUniversities = async () => fetchAdminJson<unknown[]>('/api/admin/universities');
 

@@ -127,7 +127,7 @@ const StudentManagementHome: React.FC = () => {
         <button type="button" onClick={() => setViewingStudent(null)} className="text-sm text-white/80 hover:text-white">
           ← Back to Student Management
         </button>
-        <ViewStudent student={viewingStudent} />
+        <ViewStudent studentId={viewingStudent.apiId || ''} />
       </div>
     );
   }
