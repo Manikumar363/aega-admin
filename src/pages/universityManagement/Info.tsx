@@ -52,9 +52,13 @@ const Info: React.FC<ViewUniversityProps> = ({ university }) => {
           {activeTab === 'audits' && (
             <button onClick={() => setIsEditingAudit(!isEditingAudit)} className="flex items-center gap-2 rounded bg-[#F68E2D] px-5 py-2 font-semibold text-white transition-colors hover:bg-[#e57d1f]">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M16.5 3.5a2.121 2.121 0 013 3L12 14l-4 1 1-4 7.5-7.5z" />
+                {isEditingAudit ? (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                ) : (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+                )}
               </svg>
-              {isEditingAudit ? 'Back to Audits' : 'Edit'}
+              {isEditingAudit ? 'Back to Audits' : 'New Audit'}
             </button>
           )}
           <button className="bg-[#F68E2D] hover:bg-[#e57d1f] text-white px-6 py-2 rounded font-medium flex items-center gap-2 transition-colors">
@@ -64,11 +68,11 @@ const Info: React.FC<ViewUniversityProps> = ({ university }) => {
       </div>
 
       {activeTab === 'cdp' ? (
-        <CDPTraining />
+        <CDPTraining targetType="university" targetId={university._id || String(university.id)} />
       ) : activeTab === 'compliances' ? (
-        <Compliances targetType="university" targetId={String(university.id)} />
+        <Compliances targetType="university" targetId={university._id || String(university.id)} />
       ) : activeTab === 'audits' ? (
-        <Audits targetType="university" targetId={String(university.id)} isEditing={isEditingAudit} onCancel={() => setIsEditingAudit(false)} />
+        <Audits targetType="university" targetId={university._id || String(university.id)} isEditing={isEditingAudit} onCancel={() => setIsEditingAudit(false)} />
       ) : (
         <>
           <div className="bg-[#14112E] rounded-lg p-6 border border-[#2C2A45]">

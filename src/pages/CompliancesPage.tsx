@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import {
   fetchAuditCategories,
   createAuditCategory,
@@ -115,9 +116,10 @@ export const CompliancesPage: React.FC = () => {
     }
     try {
       await deleteAuditCategory(category._id);
+      toast.success('Audit category deleted successfully');
       fetchCategories();
     } catch (err: any) {
-      alert(err.message || 'Failed to delete audit category.');
+      toast.error(err.message || 'Failed to delete audit category.');
     }
   };
 

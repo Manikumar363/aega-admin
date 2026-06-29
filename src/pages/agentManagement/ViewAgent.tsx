@@ -51,9 +51,13 @@ const ViewAgent: React.FC<ViewAgentProps> = ({ agent }) => {
           {activeTab === 'audits' && (
             <button onClick={() => setIsEditingAudit(!isEditingAudit)} className="flex items-center gap-2 rounded bg-[#F68E2D] px-5 py-2 font-semibold text-white transition-colors hover:bg-[#e57d1f]">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M16.5 3.5a2.121 2.121 0 013 3L12 14l-4 1 1-4 7.5-7.5z" />
+                {isEditingAudit ? (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                ) : (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+                )}
               </svg>
-              {isEditingAudit ? 'Back to Audits' : 'Edit'}
+              {isEditingAudit ? 'Back to Audits' : 'New Audit'}
             </button>
           )}
           <button className="flex items-center gap-2 rounded bg-[#F68E2D] px-6 py-2 font-medium text-white transition-colors hover:bg-[#e57d1f]">
@@ -63,11 +67,11 @@ const ViewAgent: React.FC<ViewAgentProps> = ({ agent }) => {
       </div>
 
       {activeTab === 'cdp' ? (
-        <CDPTraining />
+        <CDPTraining targetType="agent" targetId={agent.apiId || String(agent.id)} />
       ) : activeTab === 'compliances' ? (
-        <Compliances targetType="agent" targetId={String(agent.id)} />
+        <Compliances targetType="agent" targetId={agent.apiId || String(agent.id)} />
       ) : activeTab === 'audits' ? (
-        <Audits targetType="agent" targetId={String(agent.id)} isEditing={isEditingAudit} onCancel={() => setIsEditingAudit(false)} />
+        <Audits targetType="agent" targetId={agent.apiId || String(agent.id)} isEditing={isEditingAudit} onCancel={() => setIsEditingAudit(false)} />
       ) : (
         <>
           <div className="rounded-lg border border-[#2C2A45] bg-[#14112E] p-6">
@@ -116,11 +120,10 @@ const ViewAgent: React.FC<ViewAgentProps> = ({ agent }) => {
                   <button
                     key={period}
                     onClick={() => setTimePeriod(period)}
-                    className={`rounded px-4 py-2 text-sm font-medium transition-colors ${
-                      timePeriod === period
+                    className={`rounded px-4 py-2 text-sm font-medium transition-colors ${timePeriod === period
                         ? 'bg-[#F68E2D] text-white'
                         : 'border border-white/20 bg-transparent text-white/70 hover:text-white'
-                    }`}
+                      }`}
                   >
                     {period.charAt(0).toUpperCase() + period.slice(1)}
                   </button>

@@ -129,3 +129,40 @@ export const deleteCDPCourse = async (courseId: string): Promise<void> => {
     throw new Error(errorData.message || 'Failed to delete course');
   }
 };
+
+export interface CDPCourseProgress {
+  _id: string;
+  courseId: CDPCourse;
+  status: 'on-going' | 'due' | 'completed';
+  progress: number;
+  enrollmentDate: string;
+  startDate: string;
+  dueDate: string;
+  certificateUrl?: string;
+  completionDate?: string;
+  notes?: string;
+}
+
+export const fetchTargetUserCDPProgress = async (
+  targetType: 'agent' | 'university' | 'company',
+  targetId: string
+): Promise<CDPCourseProgress[]> => {
+  const response = await fetch(
+    buildUrl(`/api/admin/cdp-courses/enrolled?targetType=${targetType}&targetId=${targetId}`),
+    {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders(),
+      },
+    }
+  );
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || 'Failed to fetch CDP training progress');
+  }
+
+  const data = await response.json();
+  return data.data || [];
+};

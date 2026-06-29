@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import { DeleteIcon, EditIcon } from '../components/ui/icons';
 import {
   getAuditCategoryById,
@@ -130,9 +131,10 @@ export const ComplianceViewPage: React.FC = () => {
     }
     try {
       await deleteAuditCriterion(id, criterionId);
+      toast.success('Criterion deleted successfully');
       fetchCategoryDetails();
     } catch (err: any) {
-      alert(err.message || 'Failed to delete criterion.');
+      toast.error(err.message || 'Failed to delete criterion.');
     }
   };
 

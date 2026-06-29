@@ -37,7 +37,7 @@ export const AuditsTab: React.FC<AuditsTabProps> = ({
       string,
       {
         status: 'compliant' | 'non-compliant';
-        rating: 'Low' | 'Medium' | 'High';
+        rating: 'Low' | 'Medium' | 'High' | '';
         comment: string;
       }
     >
@@ -83,34 +83,15 @@ export const AuditsTab: React.FC<AuditsTabProps> = ({
       const category = categories.find((c) => c._id === categoryId);
       if (category && category.criteria) {
         const nextAnswers = { ...evaluationAnswers };
-        const latestCheck = completedChecks.find((c) => c.categoryId === categoryId);
 
         category.criteria.forEach((crit) => {
           if (crit._id && !nextAnswers[crit._id]) {
-            // Pre-fill with previous answers if they exist
-            const prevAns = latestCheck?.answers?.find((a) => a.criterionId === crit._id);
-
-            if (prevAns) {
-              const rating: 'Low' | 'Medium' | 'High' =
-                prevAns.severity === 'high' ? 'High' : prevAns.severity === 'medium' ? 'Medium' : 'Low';
-
-              nextAnswers[crit._id] = {
-                status: prevAns.status || (rating === 'Low' ? 'compliant' : 'non-compliant'),
-                rating,
-                comment: prevAns.comment || ''
-              };
-            } else {
-              // Fallback to template default
-              const severity = crit.severity || 'low';
-              const rating: 'Low' | 'Medium' | 'High' =
-                severity === 'high' ? 'High' : severity === 'medium' ? 'Medium' : 'Low';
-
-              nextAnswers[crit._id] = {
-                status: rating === 'Low' ? 'compliant' : 'non-compliant',
-                rating,
-                comment: ''
-              };
-            }
+            // Start fresh with unselected rating for a New Audit session
+            nextAnswers[crit._id] = {
+              status: 'compliant',
+              rating: '',
+              comment: ''
+            };
           }
         });
         setEvaluationAnswers(nextAnswers);
@@ -141,23 +122,26 @@ export const AuditsTab: React.FC<AuditsTabProps> = ({
 
   // Real-time compliance score calculation helper for active form UI
   const getLiveCategoryScore = (category: AuditCategory) => {
-    if (!category.criteria || category.criteria.length === 0) return '100.00%';
+    if (!category.criteria || category.criteria.length === 0) return '0.00%';
 
     let sumScores = 0;
-    let count = 0;
+    let ratedCount = 0;
 
     category.criteria.forEach((crit) => {
       if (!crit._id) return;
       const ans = evaluationAnswers[crit._id];
-      const rating = ans ? ans.rating : 'Low';
-
-      const levelScore = rating === 'High' ? 33.33 : rating === 'Medium' ? 66.66 : 100;
-      sumScores += levelScore;
-      count += 1;
+      if (ans && ans.rating) {
+        const rating = ans.rating;
+        const levelScore = rating === 'High' ? 33.33 : rating === 'Medium' ? 66.66 : rating === 'Low' ? 100 : 0;
+        sumScores += levelScore;
+        ratedCount += 1;
+      }
     });
 
-    if (count === 0) return '100.00%';
-    const score = sumScores / count;
+    const totalCount = category.criteria.length;
+    if (totalCount === 0) return '0.00%';
+    if (ratedCount === 0) return '0.00%';
+    const score = sumScores / totalCount;
     return `${score.toFixed(2)}%`;
   };
 
@@ -167,6 +151,10 @@ export const AuditsTab: React.FC<AuditsTabProps> = ({
 
     if (hasInitialized) {
       return getLiveCategoryScore(category);
+    }
+
+    if (isEditing) {
+      return '0.00%';
     }
 
     const latestCheck = completedChecks.find((c) => c.categoryId === category._id);
@@ -183,11 +171,24 @@ export const AuditsTab: React.FC<AuditsTabProps> = ({
     setSubmitError(null);
     setSubmitSuccess(null);
 
+    // Validate that all criteria are explicitly rated
+    const unratedCrit = category.criteria.find((crit) => {
+      if (!crit._id) return false;
+      const ans = evaluationAnswers[crit._id];
+      return !ans || !ans.rating;
+    });
+
+    if (unratedCrit) {
+      setSubmitError('Please select a rating (Low, Medium, or High) for all criteria before saving.');
+      setIsSubmitting(false);
+      return;
+    }
+
     try {
       const answers: AuditAnswer[] = category.criteria.map((crit) => {
         if (!crit._id) throw new Error('Criterion template ID missing.');
         const ans = evaluationAnswers[crit._id];
-        const rating = ans?.rating || 'Low';
+        const rating = ans.rating; // Guaranteed to be rated due to validation
         return {
           criterionId: crit._id,
           status: rating === 'Low' ? 'compliant' : 'non-compliant',
@@ -243,7 +244,7 @@ export const AuditsTab: React.FC<AuditsTabProps> = ({
     return (
       <div className="space-y-6 text-white animate-fadeIn">
         <div className="relative border-b-2 border-[#F68E2D] pb-1 w-fit">
-          <span className="text-base font-semibold text-[#F68E2D]">Edit Compliance Audit</span>
+          <span className="text-base font-semibold text-[#F68E2D]">New Compliance Audit</span>
         </div>
 
         {submitError && (
@@ -432,6 +433,21 @@ export const AuditsTab: React.FC<AuditsTabProps> = ({
     );
   }
 
+  // Partition audits into Latest and Previous groups
+  const latestChecks: AuditCheck[] = [];
+  const previousChecks: AuditCheck[] = [];
+  const seenCategories = new Set<string>();
+
+  completedChecks.forEach((check) => {
+    const catIdStr = String(check.categoryId);
+    if (!seenCategories.has(catIdStr)) {
+      seenCategories.add(catIdStr);
+      latestChecks.push(check);
+    } else {
+      previousChecks.push(check);
+    }
+  });
+
   return (
     <div className="space-y-6 text-white animate-fadeIn">
       {error && (
@@ -440,7 +456,7 @@ export const AuditsTab: React.FC<AuditsTabProps> = ({
         </div>
       )}
       {/* Stat KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 border border-[#2C2A45] bg-[#14112E] divide-y md:divide-y-0 md:divide-x divide-[#2C2A45]">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 border border-[#2C2A45] bg-[#14112E] divide-y sm:divide-y-0 sm:divide-x lg:divide-x divide-[#2C2A45]">
         {/* Total Audits */}
         <div className="flex items-center justify-between p-6">
           <div className="flex items-center gap-3">
@@ -463,6 +479,19 @@ export const AuditsTab: React.FC<AuditsTabProps> = ({
           <span className="text-2xl font-bold text-[#F68E2D]">{summary?.activeAlerts ?? 0}</span>
         </div>
 
+        {/* Overall Compliance */}
+        <div className="flex items-center justify-between p-6">
+          <div className="flex items-center gap-3">
+            <svg className="w-7 h-7 text-[#F68E2D]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            </svg>
+            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Overall Compliance</span>
+          </div>
+          <span className="text-2xl font-bold text-[#F68E2D]">
+            {summary?.complianceScore !== undefined ? `${summary.complianceScore.toFixed(2)}%` : '100.00%'}
+          </span>
+        </div>
+
         {/* Risk Level */}
         <div className="flex items-center justify-between p-6">
           <div className="flex items-center gap-3">
@@ -477,52 +506,101 @@ export const AuditsTab: React.FC<AuditsTabProps> = ({
         </div>
       </div>
 
-      {/* Completed Audits Grid */}
-      <div className="space-y-4">
-        <h3 className="text-sm font-semibold tracking-wider text-gray-400 uppercase">
-          Completed Audit History ({completedChecks.length})
-        </h3>
+      {/* Completed Audits sections */}
+      <div className="space-y-8">
+        {/* Latest Audits Section */}
+        <div className="space-y-4">
+          <h3 className="text-sm font-semibold tracking-wider text-gray-400 uppercase">
+            Latest Audits ({latestChecks.length})
+          </h3>
 
-        {completedChecks.length === 0 ? (
-          <div className="text-center py-12 text-white/50 border border-[#2C2A45] bg-[#14112E] rounded">
-            No compliance audits recorded so far. Click Edit to run a new audit.
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {completedChecks.map((item) => (
-              <div
-                key={item._id}
-                className="bg-[#0C0A1F] rounded border border-[#2C2A45] p-5 flex flex-col justify-between h-36 hover:border-[#F68E2D]/35 transition-all"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <h4 className="text-sm font-bold text-white tracking-wide uppercase leading-tight">
-                      {item.categoryName}
-                    </h4>
-                    <span className="text-xs text-white/50">
-                      Audited by:{' '}
-                      {typeof item.auditedBy === 'object' ? item.auditedBy.name : 'System Admin'}
+          {latestChecks.length === 0 ? (
+            <div className="text-center py-12 text-white/50 border border-[#2C2A45] bg-[#14112E] rounded">
+              No compliance audits recorded so far. Click New Audit to run a new audit.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {latestChecks.map((item) => (
+                <div
+                  key={item._id}
+                  className="bg-[#0C0A1F] rounded border border-[#2C2A45] p-5 flex flex-col justify-between h-36 hover:border-[#F68E2D]/35 transition-all"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <h4 className="text-sm font-bold text-white tracking-wide uppercase leading-tight">
+                        {item.categoryName}
+                      </h4>
+                      <span className="text-xs text-white/50">
+                        Audited by:{' '}
+                        {typeof item.auditedBy === 'object' ? item.auditedBy.name : 'System Admin'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center px-3 py-1 rounded-full text-xs font-bold bg-[#1B2C24] text-[#4ADE80] border border-[#22C55E]/10">
+                      <span>{item.complianceScore.toFixed(2)}% Score</span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs text-gray-400 gap-1 mt-2">
+                    <div className="flex items-center gap-1.5">
+                      <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <span>Date: {new Date(item.createdAt).toLocaleDateString()}</span>
+                    </div>
+                    <span className="text-[11px] text-[#F68E2D]">
+                      {item.answers.filter((a) => a.status === 'non-compliant').length} Issues Flagged
                     </span>
                   </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
-                  <div className="flex items-center px-3 py-1 rounded-full text-xs font-bold bg-[#1B2C24] text-[#4ADE80] border border-[#22C55E]/10">
-                    <span>{item.complianceScore.toFixed(2)}% Score</span>
+        {/* Previous Audits History Section */}
+        {previousChecks.length > 0 && (
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold tracking-wider text-gray-400 uppercase border-t border-[#2C2A45] pt-6">
+              Previous Audits History ({previousChecks.length})
+            </h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {previousChecks.map((item) => (
+                <div
+                  key={item._id}
+                  className="bg-[#0C0A1F]/60 rounded border border-[#2C2A45]/60 p-5 flex flex-col justify-between h-36 hover:border-[#F68E2D]/20 transition-all opacity-80"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <h4 className="text-sm font-bold text-white/90 tracking-wide uppercase leading-tight">
+                        {item.categoryName}
+                      </h4>
+                      <span className="text-xs text-white/40">
+                        Audited by:{' '}
+                        {typeof item.auditedBy === 'object' ? item.auditedBy.name : 'System Admin'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-[#14221C] text-[#4ADE80]/80 border border-[#22C55E]/5">
+                      <span>{item.complianceScore.toFixed(2)}% Score</span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs text-gray-500 gap-1 mt-2">
+                    <div className="flex items-center gap-1.5">
+                      <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <span>Date: {new Date(item.createdAt).toLocaleDateString()}</span>
+                    </div>
+                    <span className="text-[11px] text-[#F68E2D]/80">
+                      {item.answers.filter((a) => a.status === 'non-compliant').length} Issues Flagged
+                    </span>
                   </div>
                 </div>
-
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs text-gray-400 gap-1 mt-2">
-                  <div className="flex items-center gap-1.5">
-                    <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    <span>Date: {new Date(item.createdAt).toLocaleDateString()}</span>
-                  </div>
-                  <span className="text-[11px] text-[#F68E2D]">
-                    {item.answers.filter((a) => a.status === 'non-compliant').length} Issues Flagged
-                  </span>
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         )}
       </div>

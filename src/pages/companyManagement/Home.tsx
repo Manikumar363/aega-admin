@@ -4,6 +4,7 @@ import ViewCompany from './ViewCompany';
 import { toast } from 'react-toastify';
 import type { CompanyRow } from './mockData';
 import { fetchAdminCompanies, type AdminCompanyRecord } from '../../services/adminManagementApi';
+import { Eye, Pencil, Trash2 } from 'lucide-react';
 
 const ENTRIES_OPTIONS = [8, 16, 24];
 
@@ -150,16 +151,16 @@ const CompanyManagementHome: React.FC = () => {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search"
-                className="h-12 w-full border border-white/20 bg-transparent px-4 pr-12 text-sm text-white outline-none placeholder:text-white/65"
+              className="h-12 w-full border border-white/20 bg-transparent px-4 pr-12 text-sm text-white outline-none placeholder:text-white/65"
             />
             <div className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50">🔍</div>
           </div>
 
-            <button className="inline-flex h-12 items-center gap-3 bg-[#F68E2D] px-4 text-sm font-medium text-white" onClick={() => {}}>
+          <button className="inline-flex h-12 items-center gap-3 bg-[#F68E2D] px-4 text-sm font-medium text-white" onClick={() => { }}>
             Agent Type ▾
           </button>
 
-          
+
         </div>
       </div>
 
@@ -226,21 +227,21 @@ const CompanyManagementHome: React.FC = () => {
                           className="flex h-8 w-8 items-center justify-center rounded-md bg-[#F68E2D] text-white"
                           aria-label="View company"
                         >
-                          👁️
+                          <Eye />
                         </button>
                         <button
                           className="flex h-8 w-8 items-center justify-center rounded-md bg-[#4A5BE7] text-white"
                           aria-label="Edit company"
                           onClick={() => navigate(`/office/edit/${row.id}`)}
                         >
-                          ✎
+                          <Pencil />
                         </button>
                         <button
                           className="flex h-8 w-8 items-center justify-center rounded-md bg-[#E03137] text-white"
                           aria-label="Delete company"
                           onClick={() => handleDelete(row.id)}
                         >
-                          🗑
+                          <Trash2 />
                         </button>
                       </div>
                     </td>

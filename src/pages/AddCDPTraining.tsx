@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createCDPCourse } from '../services/cdpTrainingApi';
+import { toast } from 'react-toastify';
 
 const AddCDPTraining: React.FC = () => {
   const [courseName, setCourseName] = useState('');
@@ -17,6 +18,7 @@ const AddCDPTraining: React.FC = () => {
   const handleAdd = async () => {
     if (!courseName || !timeInHr || !modules || !hyperLink || !description) {
       setError('Please fill in all required fields');
+      toast.error('Please fill in all required fields');
       return;
     }
 
@@ -34,10 +36,12 @@ const AddCDPTraining: React.FC = () => {
         coverPicture,
       });
 
+      toast.success('CDP Course added successfully');
       navigate('/cdp');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to create course';
       setError(message);
+      toast.error(message);
       console.error('Error creating course:', err);
     } finally {
       setLoading(false);

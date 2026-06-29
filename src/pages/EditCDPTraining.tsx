@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getCDPCourseById, updateCDPCourse } from '../services/cdpTrainingApi';
+import { toast } from 'react-toastify';
 
 const EditCDPTraining: React.FC = () => {
   const { courseId } = useParams<{ courseId: string }>();
@@ -51,11 +52,13 @@ const EditCDPTraining: React.FC = () => {
   const handleUpdate = async () => {
     if (!courseName || !timeInHr || !modules || !hyperLink || !description) {
       setError('Please fill in all required fields');
+      toast.error('Please fill in all required fields');
       return;
     }
 
     if (!courseId) {
       setError('Course ID not found');
+      toast.error('Course ID not found');
       return;
     }
 
@@ -73,10 +76,12 @@ const EditCDPTraining: React.FC = () => {
         coverPicture,
       });
 
+      toast.success('CDP Course updated successfully');
       navigate('/cdp');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to update course';
       setError(message);
+      toast.error(message);
       console.error('Error updating course:', err);
     } finally {
       setSaving(false);
